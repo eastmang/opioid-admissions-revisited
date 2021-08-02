@@ -1,0 +1,57 @@
+---
+title: "Synthetic Control"
+author: "Greg Eastman"
+date: "11/30/2020"
+output: html_document
+---
+```{r}
+library(dplyr)
+library(Synth)
+library(ebal)
+library(gsynth)
+library(panelView)
+```
+
+```{r setup, include=FALSE}
+load("D:/Grad 2nd year/Winter Quarter/Causal Inference/Final/netset.RData") # Loading the data
+treat <- c(8, 25, 2, 53, 6, 23, 32, 11) # Making a vector of treatment values
+```
+
+
+```{r}
+# Looking at the panel plot of states
+panel <- panelView(opium ~ legal, data = netset,  index = c("state","year"), pre.post = TRUE, main = "States by Year with Treatment Status") 
+
+# The synthetic control model
+mod1 <- gsynth(opium ~ legal + gender + u35 + white + black + minority + advanced, data = netset, index = c("state", "year"), CV = TRUE, r = c(0, 5), se = TRUE, inference = "parametric", nboots = 1000, parallel = TRUE) 
+
+plot(mod1, type = "raw", theme.bw = TRUE) # This raw graph is like totally unreadable
+plot(mod1) # The overall plotof the ATT with a line at the treatment year = 0
+plot(mod1, type = "counterfactual",theme.bw = TRUE) # The treatment average vs the estimated treated average
+
+
+
+
+# I tried to combine the plots into a single graph and it did not work at all. I think I may need to copy and paste them into a file and edit them together myself. 
+quitter <- list()
+par(mfrow = c(3,3))
+for(i in length(treat)){
+  quitter[[i]] <- plot(mod1, type = "counterfactual", id = treat[i])
+}
+par(mfrow = c(2,2))
+plot(mod1, type = "counterfactual", id = 8, main = "Treated and Counterfactual CO")
+plot(mod1, type = "counterfactual", id = 25, main = "Treated and Counterfactual MA")
+plot(mod1, type = "counterfactual", id = 11, main = "Treated and Counterfactual DC")
+plot(mod1, type = "counterfactual", id = 2, main = "Treated and Counterfactual AK")
+plot(mod1, type = "counterfactual", id = 53, main = "Treated and Counterfactual WA")
+plot(mod1, type = "counterfactual", id = 6, main = "Treated and Counterfactual CA")
+plot(mod1, type = "counterfactual", id = 23, main = "Treated and Counterfactual ME")
+plot(mod1, type = "counterfactual", id = 32, main = "Treated and Counterfactual NV")
+
+treat <- c(8, 25, 2, 53, 6, 23, 32, 11)
+```
+
+
+
+
+

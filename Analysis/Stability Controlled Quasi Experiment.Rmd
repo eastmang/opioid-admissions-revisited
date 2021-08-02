@@ -1,0 +1,46 @@
+---
+title: "Stability-Controlled Quasi Experiment"
+author: "Greg Eastman"
+date: "12/1/2020"
+output: html_document
+---
+```{r}
+library(devtools)
+library(scqe)
+library(dplyr)
+library(ggplot2)
+```
+
+
+```{r}
+load("D:/Grad 2nd year/Winter+ Quarter/Causal Inference/Final/netset.RData")
+```
+So treatment is applied at unequal times. Therefore we will need to run it for each treated state. 
+
+
+```{r}
+copy <- netset %>% subset(year == 2011 | year == 2017) # only looking at 2011 and 2017 [year before and year after treatment]
+copy <- mutate(copy, post = if_else(year == 2011, 0, 1)) # making a binary with 1 as 2017 and 0 for 2011
+
+prediff <- 0
+maxi <- prediff + .2 #max of the range
+mini <- prediff - .1 #min of the range
+increment <- (maxi - mini)/10 #gets the value to increment the sequence at
+
+# Now we make the range for the SCQE and call it deltoids
+deltoids <- seq(mini, maxi, by = increment)
+
+
+test <- scqe(
+  post = copy$post, # A binary variable 0 if in the pre period and 1 if the post period
+  treatment = copy$legal, # A binary, 1 if a state will recieved treatment and 0 otherwise
+  outcome = copy$opium,  # A value between 0 and 1 for the proportion of addictions admitted for opioid/opiate use
+  delta = deltoids) # A sequence centered around the difference in treated and untreated in the pre-period
+
+
+summary(test) # summary to get the output
+plot(test, xlab = "ATT", ylab = "Delta") # get the graph
+
+```
+
+

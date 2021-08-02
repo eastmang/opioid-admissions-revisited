@@ -1,0 +1,150 @@
+---
+title: "Datacleaning"
+author: "Greg Eastman"
+date: "11/14/2020"
+output: html_document
+---
+
+```{r, queitly = TRUE, warning= FALSE}
+library(dplyr)
+library(tidyverse)
+library(Matching)
+library(ebal)
+```
+
+
+```{r}
+load("D:/Grad 2nd year/Winter Quarter/Causal Inference/Final/df1.RData")
+load("D:/Grad 2nd year/Winter Quarter/Causal Inference/Final/df2.Rdata")
+```
+
+
+```{r, include = FALSE}
+
+# METHUES IS MEDICATION ASSISTED OPIOD THERAPY
+# OPSYNFLG ARE IF OTER OPIATES WERE REPORTED
+# HERFLG IS IF HEROIN WAS REPORTED
+# HLTHINS IS IF THE PERSON HAD HEALTH INSURANCE
+variables <- c("ADMYR", "GENDER", "RACE", "AGE", "EDUC", "METHUSE", "OPSYNFLG", "HERFLG", "STFIPS")
+
+# We are subsetting the data into just the variables we want
+dat1 <- subset(PUF, select = variables)
+# We are out of workspace lmao so lets drop the large datasets
+rm(PUF)
+
+# We are subsetting the data into just the variables we want
+dat2 <- subset(tedsa_puf_2000_2017, select = variables)
+# We are out of workspace lmao so lets drop the large datasets
+rm(tedsa_puf_2000_2017)
+
+#Here we are making our detevtor for any sort of opiod or opiate addiction
+dat1 <- dat1 %>% mutate(opium = if_else(METHUSE == 1, 1, if_else(OPSYNFLG == 1, 1, if_else(HERFLG ==1 , 1, 0))))
+dat1 <- subset(dat1, select = -c(METHUSE, HERFLG, OPSYNFLG))
+
+dat2 <- dat2 %>% mutate(opium = if_else(METHUSE == 1, 1, if_else(OPSYNFLG == 1, 1, if_else(HERFLG ==1 , 1, 0))))
+dat2 <- subset(dat2, select = -c(METHUSE, HERFLG, OPSYNFLG))
+
+#We are removing all of the missing values for insurance status
+dat1 <- filter_all(dat1, all_vars(. > -1))
+dat2 <- filter_all(dat2, all_vars(. > -1))
+
+# We are appending the two datasets together
+netset <- rbind(dat1, dat2)
+
+
+# Removing the extra datasets
+
+rm(dat1)
+rm(dat2)
+
+#make the names not cancer
+netset <- netset %>% rename(year = ADMYR, gender = GENDER, race = RACE, education = EDUC, age = AGE, state = STFIPS)
+
+#Making a variable for under 35
+netset <- mutate(netset, u35 = if_else(age > 6, 1, 0))
+
+netset <- mutate(netset, white = if_else(race == 5, 1, 0))
+
+netset <- mutate(netset, black = if_else(race == 4, 1, 0))
+
+netset <- mutate(netset, minority = if_else(white == 0 & black == 0, 1, 0))
+
+netset <- mutate(netset, advanced = if_else(education > 3, 1, 0))
+
+netset <- subset(netset, select = -c(age, race, education))
+
+
+```
+
+Now we need to put in the years and states that legalized marijuana and drop states that have gaps in the data
+```{r}
+
+#missings <- c(1, 2, 5, 54, 11, 13, 26, 41, 45, 54, 72)
+
+#netset <- filter(netset, !state %in% missings)
+
+aggdata <- aggregate(netset, by = list(netset$state, netset$year), FUN = mean)
+
+rm(netset)
+
+netset <- subset(aggdata, select = -c(Group.1, Group.2))
+
+rm(aggdata)
+
+netset <- netset %>% mutate(legal = if_else(state == 8 & year >= 2012, 1, if_else(state == 25 & year >= 2012, 1, if_else(state == 2 & year >= 2014, 1, if_else(state == 41 & year >= 2014, 1, if_else(state == 53 & year >= 2014, 1, if_else(state == 6 & year >= 2016, 1, if_else(state == 23 & year >= 2016, 1, if_else(state == 32 & year >= 2016, 1,
+if_else(state == 11 & year >= 2014, 1, 0))))))))))
+
+netset <- netset %>% mutate(legal_state = if_else(state == 8, 1, if_else(state == 25, 1, if_else(state == 2, 1, if_else(state == 40, 1, if_else(state == 53, 1, if_else(state == 6, 1, if_else(state == 23, 1, if_else(state == 32, 1, if_else(state == 11, 1, 0))))))))))
+
+```
+
+I used https://www.addictioncenter.com/news/2020/11/states-legalized-marijuana/ to get the years and states that legalized marijuana
+
+And now we are going to save the adata. 
+
+```{r}
+netset <- netset %>% filter(state != 41)
+
+save(netset, file = "D:/Grad 2nd year/Winter Quarter/Causal Inference/Final/netset.RData")
+```
+
+
+```{r,echo = FALSE, error=FALSE, message= FALSE, results = 'hide', warning=FALSE}
+
+mb = MatchBalance(legal_state ~ u35 + white + black + minority + advanced, data=netset, nboots=10000)
+
+varnames=c("u35", "white", "black", "minority","advanced")
+
+btest=baltest.collect(mb,var.names=varnames,after=F)
+
+round(btest[,c("mean.Tr","mean.Co","T pval","KS pval")],2)
+```
+
+Now we need to put in the years and states that legalized marijuana and drop states that have gaps in the data
+```{r}
+
+#missings <- c(1, 2, 5, 54, 11, 13, 26, 41, 45, 54, 72)
+
+#netset <- filter(netset, !state %in% missings)
+
+aggdata <- aggregate(netset, by = list(netset$state, netset$year), FUN = sum)
+```
+
+```{R}
+rm(netset)
+
+netset2 <- subset(aggdata, select = -c(year, state))
+
+netset2 <- netset2 %>% rename(year = Group.2, state = Group.1)
+
+rm(aggdata)
+
+netset2 <- netset2 %>% mutate(legal = if_else(state == 8 & year >= 2012, 1, if_else(state == 25 & year >= 2012, 1, if_else(state == 2 & year >= 2014, 1, if_else(state == 40 & year >= 2014, 1, if_else(state == 53 & year >= 2014, 1, if_else(state == 6 & year >= 2016, 1, if_else(state == 23 & year >= 2016, 1, if_else(state == 32 & year >= 2016, 1,
+if_else(state == 11 & year >= 2014, 1, 0))))))))))
+
+netset2 <- netset2 %>% mutate(legal_state = if_else(state == 8, 1, if_else(state == 25, 1, if_else(state == 2, 1, if_else(state == 40, 1, if_else(state == 53, 1, if_else(state == 6, 1, if_else(state == 23, 1, if_else(state == 32, 1, if_else(state == 11, 1, 0))))))))))
+
+
+save(netset2, file = "D:/Grad 2nd year/Winter Quarter/Causal Inference/Final/netset.RData")
+```
+
