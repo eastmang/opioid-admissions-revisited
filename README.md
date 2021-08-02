@@ -17,7 +17,7 @@ evidence that marijuana policy reduces rehabilitation rates for opioid addiction
 The data used for this work comes from the Treatment Episode DataSet-Admissions or TEDS-A for short. It covers most
 but not all states for the years 2000-2018. Below is a graphic of the states and their treatment status. 
 
-![img1](Graphs/States by Year with Treatment Status.png)
+![SBYWTS_1.png](Graphs/States by Year with Treatment Status.png)
 
 The light blue indicates that states are controls, the mid-blue means they are treated states in a pre-treatment period,
 the dark-blue indicates that it is a treatment state in the treated period, and finally white means there is a missing
